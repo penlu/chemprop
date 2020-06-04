@@ -1,8 +1,10 @@
-import torch.nn as nn
-
 from .mpn import MPN
 from chemprop.args import TrainArgs
 from chemprop.nn_utils import get_activation_function, initialize_weights
+
+import tensorflow as tf
+import tensorflow.keras.layers as layers
+from tensorflow.keras.layers import Dense, Dropout, Softmax
 
 
 class MoleculeModel(nn.Module):
@@ -27,10 +29,10 @@ class MoleculeModel(nn.Module):
             self.output_size *= args.multiclass_num_classes
 
         if self.classification:
-            self.sigmoid = nn.Sigmoid()
+            self.sigmoid = tf.keras.activations.sigmoid
 
         if self.multiclass:
-            self.multiclass_softmax = nn.Softmax(dim=2)
+            self.multiclass_softmax = Softmax(axis=2)
 
         self.create_encoder(args)
         self.create_ffn(args)
@@ -61,34 +63,34 @@ class MoleculeModel(nn.Module):
             if args.use_input_features:
                 first_linear_dim += args.features_size
 
-        dropout = nn.Dropout(args.dropout)
+        dropout = Dropout(args.dropout)
         activation = get_activation_function(args.activation)
 
         # Create FFN layers
         if args.ffn_num_layers == 1:
             ffn = [
                 dropout,
-                nn.Linear(first_linear_dim, self.output_size)
+                Dense(self.output_size, input_shape=(first_linear_dim,))
             ]
         else:
             ffn = [
                 dropout,
-                nn.Linear(first_linear_dim, args.ffn_hidden_size)
+                Dense(args.ffn_hidden_size, input_shape=(first_linear_dim,))
             ]
             for _ in range(args.ffn_num_layers - 2):
                 ffn.extend([
                     activation,
                     dropout,
-                    nn.Linear(args.ffn_hidden_size, args.ffn_hidden_size),
+                    Dense(args.ffn_hidden_size, input_shape=(args.ffn_hidden_size,)),
                 ])
             ffn.extend([
                 activation,
                 dropout,
-                nn.Linear(args.ffn_hidden_size, self.output_size),
+                Dense(self.output_size, input_shape=(args.ffn_hidden_size,)),
             ])
 
         # Create FFN model
-        self.ffn = nn.Sequential(*ffn)
+        self.ffn = nn.Sequential(ffn)
 
     def featurize(self, *input):
         """
@@ -96,9 +98,10 @@ class MoleculeModel(nn.Module):
         :param input: Input.
         :return: The feature vectors computed by the MoleculeModel.
         """
+        raise Exception("how to take apart model???")
         return self.ffn[:-1](self.encoder(*input))
 
-    def forward(self, *input):
+    def call(self, *input):
         """
         Runs the MoleculeModel on input.
 

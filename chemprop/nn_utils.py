@@ -10,6 +10,8 @@ from tqdm import tqdm, trange
 
 from chemprop.data import MoleculeDataLoader, MoleculeDataset
 
+import tensorflow as tf
+from tensorflow.keras.layers import ReLU, LeakyReLU, PReLU
 
 def compute_pnorm(model: nn.Module) -> float:
     """Computes the norm of the parameters of a model."""
@@ -31,7 +33,7 @@ def param_count(model: nn.Module) -> int:
     return sum(param.numel() for param in model.parameters() if param.requires_grad)
 
 
-def index_select_ND(source: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
+def index_select_ND(source: tf.Tensor, index: tf.Tensor) -> tf.Tensor:
     """
     Selects the message features from source corresponding to the atom or bond indices in index.
 
@@ -45,13 +47,10 @@ def index_select_ND(source: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
     suffix_dim = source.size()[1:]  # (hidden_size,)
     final_size = index_size + suffix_dim  # (num_atoms/num_bonds, max_num_bonds, hidden_size)
 
-    target = source.index_select(dim=0, index=index.view(-1))  # (num_atoms/num_bonds * max_num_bonds, hidden_size)
-    target = target.view(final_size)  # (num_atoms/num_bonds, max_num_bonds, hidden_size)
-
-    return target
+    return tf.gather(source, index) # (num_atoms/num_bonds, max_num_bonds, hidden_size)
 
 
-def get_activation_function(activation: str) -> nn.Module:
+def get_activation_function(activation: str):
     """
     Gets an activation function module given the name of the activation.
 
@@ -59,17 +58,17 @@ def get_activation_function(activation: str) -> nn.Module:
     :return: The activation function module.
     """
     if activation == 'ReLU':
-        return nn.ReLU()
+        return layers.ReLU()
     elif activation == 'LeakyReLU':
-        return nn.LeakyReLU(0.1)
+        return layers.LeakyReLU(0.1)
     elif activation == 'PReLU':
-        return nn.PReLU()
-    elif activation == 'tanh':
-        return nn.Tanh()
-    elif activation == 'SELU':
-        return nn.SELU()
-    elif activation == 'ELU':
-        return nn.ELU()
+        return layers.PReLU()
+#    elif activation == 'tanh':
+#        return nn.Tanh()
+#    elif activation == 'SELU':
+#        return nn.SELU()
+#    elif activation == 'ELU':
+#        return nn.ELU()
     else:
         raise ValueError(f'Activation "{activation}" not supported.')
 
