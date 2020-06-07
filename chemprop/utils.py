@@ -18,6 +18,8 @@ from chemprop.data import StandardScaler, MoleculeDataset
 from chemprop.models import MoleculeModel
 from chemprop.nn_utils import NoamLR
 
+import tensorflow as tf
+
 
 def makedirs(path: str, isfile: bool = False):
     """
@@ -163,7 +165,7 @@ def load_task_names(path: str) -> List[str]:
     return load_args(path).task_names
 
 
-def get_loss_func(args: TrainArgs) -> nn.Module:
+def get_loss_func(args: TrainArgs):
     """
     Gets the loss function corresponding to a given dataset type.
 
@@ -171,13 +173,13 @@ def get_loss_func(args: TrainArgs) -> nn.Module:
     :return: A PyTorch loss function.
     """
     if args.dataset_type == 'classification':
-        return nn.BCEWithLogitsLoss(reduction='none')
+        return tf.keras.losses.BinaryCrossentropy()
 
     if args.dataset_type == 'regression':
-        return nn.MSELoss(reduction='none')
+        return tf.keras.losses.MeanSquaredError()
     
     if args.dataset_type == 'multiclass':
-        return nn.CrossEntropyLoss(reduction='none')
+        return tf.keras.losses.CategoricalCrossentropy()
 
     raise ValueError(f'Dataset type "{args.dataset_type}" not supported.')
 
@@ -275,30 +277,8 @@ def build_optimizer(model: nn.Module, args: TrainArgs) -> Optimizer:
     :param args: Arguments.
     :return: An initialized Optimizer.
     """
-    params = [{'params': model.parameters(), 'lr': args.init_lr, 'weight_decay': 0}]
 
-    return Adam(params)
-
-
-def build_lr_scheduler(optimizer: Optimizer, args: TrainArgs, total_epochs: List[int] = None) -> _LRScheduler:
-    """
-    Builds a learning rate scheduler.
-
-    :param optimizer: The Optimizer whose learning rate will be scheduled.
-    :param args: Arguments.
-    :param total_epochs: The total number of epochs for which the model will be run.
-    :return: An initialized learning rate scheduler.
-    """
-    # Learning rate scheduler
-    return NoamLR(
-        optimizer=optimizer,
-        warmup_epochs=[args.warmup_epochs],
-        total_epochs=total_epochs or [args.epochs] * args.num_lrs,
-        steps_per_epoch=args.train_data_size // args.batch_size,
-        init_lr=[args.init_lr],
-        max_lr=[args.max_lr],
-        final_lr=[args.final_lr]
-    )
+    return tf.keras.optimizers.Adam(learning_rate=args.init_lr)
 
 
 def create_logger(name: str, save_dir: str = None, quiet: bool = False) -> logging.Logger:

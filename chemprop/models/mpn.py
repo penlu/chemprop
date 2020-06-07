@@ -66,21 +66,13 @@ class MPNEncoder(layers.Layer):
 
     # TODO check correctness of all this
     # TODO do we need a build method?
-    def call(self,
-                mol_graph: BatchMolGraph,
-                features_batch: List[np.ndarray] = None) -> tf.Tensor:
+    def call(self, mol_graph: BatchMolGraph) -> tf.Tensor:
         """
         Encodes a batch of molecular graphs.
 
         :param mol_graph: A BatchMolGraph representing a batch of molecular graphs.
-        :param features_batch: A list of ndarrays containing additional features.
         :return: A PyTorch tensor of shape (num_molecules, hidden_size) containing the encoding of each molecule.
         """
-        if self.use_input_features:
-            features_batch = np.stack(features_batch)
-
-            if self.features_only:
-                return features_batch
 
         f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
 
@@ -137,11 +129,6 @@ class MPNEncoder(layers.Layer):
 
         mol_vecs = tf.stack(mol_vecs, axis=0)  # (num_molecules, hidden_size)
         
-        if self.use_input_features:
-            if len(features_batch.shape) == 1:
-                features_batch = tf.reshape(features_batch, [1, features_batch.shape[0]])
-            mol_vecs = tf.concat([mol_vecs, features_batch], axis=1)  # (num_molecules, hidden_size)
-
         return mol_vecs  # num_molecules x hidden
 
 
@@ -165,20 +152,17 @@ class MPN(layers.Layer):
         self.bond_fdim = bond_fdim or get_bond_fdim(atom_messages=args.atom_messages)
         self.encoder = MPNEncoder(self.args, self.atom_fdim, self.bond_fdim)
 
-    def call(self,
-                batch: Union[List[str], List[Chem.Mol], BatchMolGraph],
-                features_batch: List[np.ndarray] = None) -> tf.Tensor:
+    def call(self, batch: Union[List[str], List[Chem.Mol], BatchMolGraph]) -> tf.Tensor:
         """
         Encodes a batch of molecular SMILES strings.
 
         :param batch: A list of SMILES strings, a list of RDKit molecules, or a BatchMolGraph.
-        :param features_batch: A list of ndarrays containing additional features.
         :return: A PyTorch tensor of shape (num_molecules, hidden_size) containing the encoding of each molecule.
         """
         if type(batch) != BatchMolGraph:
             batch = mol2graph(batch)
 
         # TODO is this how we do a call?
-        output = self.encoder.call(batch, features_batch)
+        output = self.encoder(batch)
 
         return output

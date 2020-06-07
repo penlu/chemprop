@@ -5,7 +5,6 @@ from tensorboardX import SummaryWriter
 import torch
 import torch.nn as nn
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
 from tqdm import tqdm
 
 from chemprop.args import TrainArgs
@@ -17,7 +16,6 @@ def train(model: nn.Module,
           data_loader: MoleculeDataLoader,
           loss_func: Callable,
           optimizer: Optimizer,
-          scheduler: _LRScheduler,
           args: TrainArgs,
           n_iter: int = 0,
           logger: logging.Logger = None,
@@ -29,7 +27,6 @@ def train(model: nn.Module,
     :param data_loader: A MoleculeDataLoader.
     :param loss_func: Loss function.
     :param optimizer: An Optimizer.
-    :param scheduler: A learning rate scheduler.
     :param args: Arguments.
     :param n_iter: The number of iterations (training examples) trained on so far.
     :param logger: A logger for printing intermediate results.
@@ -70,27 +67,20 @@ def train(model: nn.Module,
         loss.backward()
         optimizer.step()
 
-        if isinstance(scheduler, NoamLR):
-            scheduler.step()
-
         n_iter += len(batch)
 
         # Log and/or add to tensorboard
         if (n_iter // args.batch_size) % args.log_frequency == 0:
-            lrs = scheduler.get_lr()
             pnorm = compute_pnorm(model)
             gnorm = compute_gnorm(model)
             loss_avg = loss_sum / iter_count
             loss_sum, iter_count = 0, 0
 
-            lrs_str = ', '.join(f'lr_{i} = {lr:.4e}' for i, lr in enumerate(lrs))
-            debug(f'Loss = {loss_avg:.4e}, PNorm = {pnorm:.4f}, GNorm = {gnorm:.4f}, {lrs_str}')
+            debug(f'Loss = {loss_avg:.4e}, PNorm = {pnorm:.4f}, GNorm = {gnorm:.4f}')
 
             if writer is not None:
                 writer.add_scalar('train_loss', loss_avg, n_iter)
                 writer.add_scalar('param_norm', pnorm, n_iter)
                 writer.add_scalar('gradient_norm', gnorm, n_iter)
-                for i, lr in enumerate(lrs):
-                    writer.add_scalar(f'learning_rate_{i}', lr, n_iter)
 
     return n_iter

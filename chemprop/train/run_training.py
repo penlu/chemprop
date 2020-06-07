@@ -9,7 +9,6 @@ from tensorboardX import SummaryWriter
 import torch
 from tqdm import trange
 import pickle
-from torch.optim.lr_scheduler import ExponentialLR
 
 from .evaluate import evaluate, evaluate_predictions
 from .predict import predict
@@ -19,7 +18,7 @@ from chemprop.data import StandardScaler, MoleculeDataLoader
 from chemprop.data.utils import get_class_sizes, get_data, get_task_names, split_data
 from chemprop.models import MoleculeModel
 from chemprop.nn_utils import param_count
-from chemprop.utils import build_optimizer, build_lr_scheduler, get_loss_func, get_metric_func, load_checkpoint,\
+from chemprop.utils import build_optimizer, get_loss_func, get_metric_func, load_checkpoint,\
     makedirs, save_checkpoint, save_smiles_splits
 
 
@@ -48,7 +47,7 @@ def run_training(args: TrainArgs, logger: Logger = None) -> List[float]:
     args.save(os.path.join(args.save_dir, 'args.json'))
 
     # Set pytorch seed for random initial weights
-    torch.manual_seed(args.pytorch_seed)
+    tf.random.set_seed(args.pytorch_seed)
 
     # Get data
     debug('Loading data')
@@ -164,28 +163,13 @@ def run_training(args: TrainArgs, logger: Logger = None) -> List[float]:
         except:
             writer = SummaryWriter(logdir=save_dir)
 
-        # Load/build model
-        if args.checkpoint_paths is not None:
-            debug(f'Loading model {model_idx} from {args.checkpoint_paths[model_idx]}')
-            model = load_checkpoint(args.checkpoint_paths[model_idx], logger=logger)
-        else:
-            debug(f'Building model {model_idx}')
-            model = MoleculeModel(args)
-
+        # Build model
+        debug(f'Building model {model_idx}')
+        model = MoleculeModel(args)
         debug(model)
-        debug(f'Number of parameters = {param_count(model):,}')
-        if args.cuda:
-            debug('Moving model to cuda')
-        model = model.to(args.device)
-
-        # Ensure that model is saved in correct location for evaluation if 0 epochs
-        save_checkpoint(os.path.join(save_dir, 'model.pt'), model, scaler, features_scaler, args)
 
         # Optimizers
         optimizer = build_optimizer(model, args)
-
-        # Learning rate schedulers
-        scheduler = build_lr_scheduler(optimizer, args)
 
         # Run training
         best_score = float('inf') if args.minimize_score else -float('inf')
@@ -198,14 +182,11 @@ def run_training(args: TrainArgs, logger: Logger = None) -> List[float]:
                 data_loader=train_data_loader,
                 loss_func=loss_func,
                 optimizer=optimizer,
-                scheduler=scheduler,
                 args=args,
                 n_iter=n_iter,
                 logger=logger,
                 writer=writer
             )
-            if isinstance(scheduler, ExponentialLR):
-                scheduler.step()
             val_scores = evaluate(
                 model=model,
                 data_loader=val_data_loader,
@@ -227,16 +208,6 @@ def run_training(args: TrainArgs, logger: Logger = None) -> List[float]:
                     debug(f'Validation {task_name} {args.metric} = {val_score:.6f}')
                     writer.add_scalar(f'validation_{task_name}_{args.metric}', val_score, n_iter)
 
-            # Save model checkpoint if improved validation score
-            if args.minimize_score and avg_val_score < best_score or \
-                    not args.minimize_score and avg_val_score > best_score:
-                best_score, best_epoch = avg_val_score, epoch
-                save_checkpoint(os.path.join(save_dir, 'model.pt'), model, scaler, features_scaler, args)        
-
-        # Evaluate on test set using model with best validation score
-        info(f'Model {model_idx} best validation {args.metric} = {best_score:.6f} on epoch {best_epoch}')
-        model = load_checkpoint(os.path.join(save_dir, 'model.pt'), device=args.device, logger=logger)
-        
         test_preds = predict(
             model=model,
             data_loader=test_data_loader,
