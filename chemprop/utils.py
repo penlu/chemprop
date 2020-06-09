@@ -171,7 +171,7 @@ def get_loss_func(args: TrainArgs):
     :return: A PyTorch loss function.
     """
     if args.dataset_type == 'classification':
-        return tf.keras.losses.BinaryCrossentropy()
+        return tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
     if args.dataset_type == 'regression':
         return tf.keras.losses.MeanSquaredError()
