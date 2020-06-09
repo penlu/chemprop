@@ -43,8 +43,8 @@ def index_select_ND(source: tf.Tensor, index: tf.Tensor) -> tf.Tensor:
     :return: A tensor of shape (num_atoms/num_bonds, max_num_bonds, hidden_size) containing the message
     features corresponding to the atoms/bonds specified in index.
     """
-    index_size = index.size()  # (num_atoms/num_bonds, max_num_bonds)
-    suffix_dim = source.size()[1:]  # (hidden_size,)
+    index_size = index.shape  # (num_atoms/num_bonds, max_num_bonds)
+    suffix_dim = source.shape[1:]  # (hidden_size,)
     final_size = index_size + suffix_dim  # (num_atoms/num_bonds, max_num_bonds, hidden_size)
 
     return tf.gather(source, index) # (num_atoms/num_bonds, max_num_bonds, hidden_size)

@@ -1,13 +1,13 @@
 from typing import List
 
-import torch
-import torch.nn as nn
 from tqdm import tqdm
 
 from chemprop.data import MoleculeDataLoader, MoleculeDataset, StandardScaler
 
+import tensorflow as tf
 
-def predict(model: nn.Module,
+
+def predict(model: tf.keras.Model,
             data_loader: MoleculeDataLoader,
             disable_progress_bar: bool = False,
             scaler: StandardScaler = None) -> List[List[float]]:
@@ -21,8 +21,6 @@ def predict(model: nn.Module,
     :return: A list of lists of predictions. The outer list is examples
     while the inner list is tasks.
     """
-    model.eval()
-
     preds = []
 
     for batch in tqdm(data_loader, disable=disable_progress_bar):
@@ -31,10 +29,7 @@ def predict(model: nn.Module,
         mol_batch, features_batch = batch.batch_graph(), batch.features()
 
         # Make predictions
-        with torch.no_grad():
-            batch_preds = model(mol_batch, features_batch)
-
-        batch_preds = batch_preds.data.cpu().numpy()
+        batch_preds = model(mol_batch, training=False).numpy()
 
         # Inverse scale if regression
         if scaler is not None:

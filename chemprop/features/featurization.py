@@ -1,7 +1,8 @@
 from typing import List, Tuple, Union
 
 from rdkit import Chem
-import torch
+
+import tensorflow as tf
 
 # Atom feature sizes
 MAX_ATOMIC_NUM = 100
@@ -220,17 +221,15 @@ class BatchMolGraph:
 
         self.max_num_bonds = max(1, max(len(in_bonds) for in_bonds in a2b))  # max with 1 to fix a crash in rare case of all single-heavy-atom mols
 
-        self.f_atoms = torch.FloatTensor(f_atoms)
-        self.f_bonds = torch.FloatTensor(f_bonds)
-        self.a2b = torch.LongTensor([a2b[a] + [0] * (self.max_num_bonds - len(a2b[a])) for a in range(self.n_atoms)])
-        self.b2a = torch.LongTensor(b2a)
-        self.b2revb = torch.LongTensor(b2revb)
+        self.f_atoms = tf.convert_to_tensor(f_atoms)
+        self.f_bonds = tf.convert_to_tensor(f_bonds)
+        self.a2b = tf.convert_to_tensor([a2b[a] + [0] * (self.max_num_bonds - len(a2b[a])) for a in range(self.n_atoms)])
+        self.b2a = tf.convert_to_tensor(b2a)
+        self.b2revb = tf.convert_to_tensor(b2revb)
         self.b2b = None  # try to avoid computing b2b b/c O(n_atoms^3)
         self.a2a = None  # only needed if using atom messages
 
-    def get_components(self, atom_messages: bool = False) -> Tuple[torch.FloatTensor, torch.FloatTensor,
-                                                                   torch.LongTensor, torch.LongTensor, torch.LongTensor,
-                                                                   List[Tuple[int, int]], List[Tuple[int, int]]]:
+    def get_components(self, atom_messages: bool = False):
         """
         Returns the components of the BatchMolGraph.
 
@@ -246,7 +245,7 @@ class BatchMolGraph:
 
         return self.f_atoms, f_bonds, self.a2b, self.b2a, self.b2revb, self.a_scope, self.b_scope
 
-    def get_b2b(self) -> torch.LongTensor:
+    def get_b2b(self):
         """
         Computes (if necessary) and returns a mapping from each bond index to all the incoming bond indices.
 
@@ -261,7 +260,7 @@ class BatchMolGraph:
 
         return self.b2b
 
-    def get_a2a(self) -> torch.LongTensor:
+    def get_a2a(self):
         """
         Computes (if necessary) and returns a mapping from each atom index to all neighboring atom indices.
 
