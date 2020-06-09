@@ -93,13 +93,15 @@ class MoleculeModel(tf.keras.Model):
         :return: The output of the MoleculeModel.
         """
 
-        output = self.ffn(self.encoder(*input))
+        output = self.encoder(*input)
+        for layer in ffn:
+            output = layer(output)
 
         # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
         if self.classification and not self.training:
             output = self.sigmoid(output)
         if self.multiclass:
-            output = output.reshape((output.size(0), -1, self.num_classes))  # batch size x num targets x num classes per target
+            output = tf.reshape(output, (output.size(0), -1, self.num_classes))  # batch size x num targets x num classes per target
             if not self.training:
                 output = self.multiclass_softmax(output)  # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
