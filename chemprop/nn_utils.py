@@ -58,11 +58,11 @@ def get_activation_function(activation: str):
     :return: The activation function module.
     """
     if activation == 'ReLU':
-        return layers.ReLU()
+        return ReLU()
     elif activation == 'LeakyReLU':
-        return layers.LeakyReLU(0.1)
+        return LeakyReLU(0.1)
     elif activation == 'PReLU':
-        return layers.PReLU()
+        return PReLU()
 #    elif activation == 'tanh':
 #        return nn.Tanh()
 #    elif activation == 'SELU':

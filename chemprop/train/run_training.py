@@ -17,9 +17,10 @@ from chemprop.args import TrainArgs
 from chemprop.data import StandardScaler, MoleculeDataLoader
 from chemprop.data.utils import get_class_sizes, get_data, get_task_names, split_data
 from chemprop.models import MoleculeModel
-from chemprop.nn_utils import param_count
 from chemprop.utils import build_optimizer, get_loss_func, get_metric_func, load_checkpoint,\
     makedirs, save_checkpoint, save_smiles_splits
+
+import tensorflow as tf
 
 
 def run_training(args: TrainArgs, logger: Logger = None) -> List[float]:

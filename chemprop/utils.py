@@ -10,8 +10,6 @@ from sklearn.metrics import auc, mean_absolute_error, mean_squared_error, precis
     roc_auc_score, accuracy_score, log_loss
 import torch
 import torch.nn as nn
-from torch.optim import Adam, Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
 
 from chemprop.args import TrainArgs
 from chemprop.data import StandardScaler, MoleculeDataset
@@ -269,7 +267,7 @@ def get_metric_func(metric: str) -> Callable[[Union[List[int], List[float]], Lis
     raise ValueError(f'Metric "{metric}" not supported.')
 
 
-def build_optimizer(model: nn.Module, args: TrainArgs) -> Optimizer:
+def build_optimizer(model: nn.Module, args: TrainArgs):
     """
     Builds an Optimizer.
 

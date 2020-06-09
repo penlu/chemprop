@@ -2,20 +2,18 @@ import logging
 from typing import Callable
 
 from tensorboardX import SummaryWriter
-import torch
-import torch.nn as nn
-from torch.optim import Optimizer
 from tqdm import tqdm
 
 from chemprop.args import TrainArgs
 from chemprop.data import MoleculeDataLoader, MoleculeDataset
 from chemprop.nn_utils import compute_gnorm, compute_pnorm, NoamLR
 
+import tensorflow as tf
 
-def train(model: nn.Module,
+def train(model: tf.keras.Model,
           data_loader: MoleculeDataLoader,
           loss_func: Callable,
-          optimizer: Optimizer,
+          optimizer,
           args: TrainArgs,
           n_iter: int = 0,
           logger: logging.Logger = None,
@@ -35,37 +33,30 @@ def train(model: nn.Module,
     """
     debug = logger.debug if logger is not None else print
     
-    model.train()
     loss_sum, iter_count = 0, 0
 
     for batch in tqdm(data_loader, total=len(data_loader)):
-        # Prepare batch
-        batch: MoleculeDataset
-        mol_batch, features_batch, target_batch = batch.batch_graph(), batch.features(), batch.targets()
-        mask = torch.Tensor([[x is not None for x in tb] for tb in target_batch])
-        targets = torch.Tensor([[0 if x is None else x for x in tb] for tb in target_batch])
+        with tf.GradientTape() as tape:
+            # Prepare batch
+            mol_batch, features_batch, target_batch = batch.batch_graph(), batch.features(), batch.targets()
+            mask = [[x is not None for x in tb] for tb in target_batch]
+            targets = [[0 if x is None else x for x in tb] for tb in target_batch]
 
-        # Run model
-        model.zero_grad()
-        preds = model(mol_batch, features_batch)
+            # Run model
+            preds = model(mol_batch)
 
-        # Move tensors to correct device
-        mask = mask.to(preds.device)
-        targets = targets.to(preds.device)
-        class_weights = torch.ones(targets.shape, device=preds.device)
+            if args.dataset_type == 'multiclass':
+                targets = targets.long()
+                loss = tf.concat([loss_func(preds[:, target_index, :], targets[:, target_index]).unsqueeze(1) for target_index in range(preds.size(1))], axis=1) * class_weights * mask
+            else:
+                loss = loss_func(preds, targets) * class_weights * mask
+            loss = loss.sum() / mask.sum()
 
-        if args.dataset_type == 'multiclass':
-            targets = targets.long()
-            loss = torch.cat([loss_func(preds[:, target_index, :], targets[:, target_index]).unsqueeze(1) for target_index in range(preds.size(1))], dim=1) * class_weights * mask
-        else:
-            loss = loss_func(preds, targets) * class_weights * mask
-        loss = loss.sum() / mask.sum()
+            loss_sum += loss.item()
+            iter_count += len(batch)
 
-        loss_sum += loss.item()
-        iter_count += len(batch)
-
-        loss.backward()
-        optimizer.step()
+            gradients = tape.gradient(loss, model.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
         n_iter += len(batch)
 
