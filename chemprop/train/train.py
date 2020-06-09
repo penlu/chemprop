@@ -53,8 +53,8 @@ def train(model: tf.keras.Model,
                 loss = loss_func(targets, preds) * class_weights * mask
             loss = tf.math.reduce_sum(loss) / tf.math.reduce_sum(mask)
 
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        gradients = tape.gradient(loss, model.trainable_variables)
+        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
         loss_sum += loss
         iter_count += len(batch)
