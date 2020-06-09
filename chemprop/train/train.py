@@ -48,16 +48,16 @@ def train(model: tf.keras.Model,
 
             if args.dataset_type == 'multiclass':
                 targets = targets.long()
-                loss = tf.concat([loss_func(preds[:, target_index, :], targets[:, target_index]).unsqueeze(1) for target_index in range(preds.size(1))], axis=1) * class_weights * mask
+                loss = tf.concat([loss_func(targets[:, target_index], preds[:, target_index, :]).unsqueeze(1) for target_index in range(preds.size(1))], axis=1) * class_weights * mask
             else:
-                loss = loss_func(preds, targets) * class_weights * mask
+                loss = loss_func(targets, preds) * class_weights * mask
             loss = tf.math.reduce_sum(loss) / tf.math.reduce_sum(mask)
-
-            loss_sum += loss
-            iter_count += len(batch)
 
             gradients = tape.gradient(loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+        loss_sum += loss
+        iter_count += len(batch)
 
         n_iter += len(batch)
 
