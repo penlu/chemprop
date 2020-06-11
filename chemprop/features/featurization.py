@@ -194,8 +194,8 @@ class BatchMolGraph:
         # Start n_atoms and n_bonds at 1 b/c zero padding
         self.n_atoms = 1  # number of atoms (start at 1 b/c need index 0 as padding)
         self.n_bonds = 1  # number of bonds (start at 1 b/c need index 0 as padding)
-        self.a_scope = []  # list of tuples indicating (start_atom_index, num_atoms) for each molecule
-        self.b_scope = []  # list of tuples indicating (start_bond_index, num_bonds) for each molecule
+        a_scope = [0]  # list of indices indicating molecule number for each atom
+        b_scope = [0]  # list of indices indicating molecule number for each bond
 
         # All start with zero padding so that indexing with zero padding returns zeros
         f_atoms = [[0] * self.atom_fdim]  # atom features
@@ -203,7 +203,7 @@ class BatchMolGraph:
         a2b = [[]]  # mapping from atom index to incoming bond indices
         b2a = [0]  # mapping from bond index to the index of the atom the bond is coming from
         b2revb = [0]  # mapping from bond index to the index of the reverse bond
-        for mol_graph in mol_graphs:
+        for mol_num, mol_graph in enumerate(mol_graphs):
             f_atoms.extend(mol_graph.f_atoms)
             f_bonds.extend(mol_graph.f_bonds)
 
@@ -214,8 +214,8 @@ class BatchMolGraph:
                 b2a.append(self.n_atoms + mol_graph.b2a[b])
                 b2revb.append(self.n_bonds + mol_graph.b2revb[b])
 
-            self.a_scope.append((self.n_atoms, mol_graph.n_atoms))
-            self.b_scope.append((self.n_bonds, mol_graph.n_bonds))
+            a_scope += [mol_num + 1] * mol_graph.n_atoms
+            b_scope += [mol_num + 1] * mol_graph.n_bonds
             self.n_atoms += mol_graph.n_atoms
             self.n_bonds += mol_graph.n_bonds
 
@@ -228,6 +228,8 @@ class BatchMolGraph:
         self.b2revb = tf.convert_to_tensor(b2revb)
         self.b2b = None  # try to avoid computing b2b b/c O(n_atoms^3)
         self.a2a = None  # only needed if using atom messages
+        self.a_scope = tf.convert_to_tensor(a_scope)
+        self.b_scope = tf.convert_to_tensor(b_scope)
 
     def get_components(self, atom_messages: bool = False):
         """

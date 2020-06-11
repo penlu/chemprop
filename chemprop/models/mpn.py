@@ -64,9 +64,9 @@ class MPNEncoder(layers.Layer):
 
         self.W_o = Dense(self.hidden_size, input_shape=(self.atom_fdim + self.hidden_size,))
 
-    # TODO check correctness of all this
-    # TODO do we need a build method?
-    def call(self, mol_graph: BatchMolGraph) -> tf.Tensor:
+    @tf.function(experimental_relax_shapes=True)
+    def call(self, f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope) -> tf.Tensor:
+    #mol_graph: BatchMolGraph) -> tf.Tensor:
         """
         Encodes a batch of molecular graphs.
 
@@ -74,7 +74,7 @@ class MPNEncoder(layers.Layer):
         :return: A PyTorch tensor of shape (num_molecules, hidden_size) containing the encoding of each molecule.
         """
 
-        f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
+        #f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
 
         if self.atom_messages:
             a2a = mol_graph.get_a2a()
@@ -116,19 +116,8 @@ class MPNEncoder(layers.Layer):
         atom_hiddens = self.dropout_layer(atom_hiddens)  # num_atoms x hidden
 
         # Readout
-        mol_vecs = []
-        for i, (a_start, a_size) in enumerate(a_scope):
-            if a_size == 0:
-                mol_vecs.append(self.cached_zero_vector)
-            else:
-                cur_hiddens = atom_hiddens[a_start:a_start + a_size]
-                mol_vec = cur_hiddens  # (num_atoms, hidden_size)
+        mol_vecs = tf.math.segment_mean(atom_hiddens, a_scope)[1:]
 
-                mol_vec = tf.math.reduce_sum(mol_vec, axis=0) / a_size
-                mol_vecs.append(mol_vec)
-
-        mol_vecs = tf.stack(mol_vecs, axis=0)  # (num_molecules, hidden_size)
-        
         return mol_vecs  # num_molecules x hidden
 
 
@@ -162,7 +151,7 @@ class MPN(layers.Layer):
         if type(batch) != BatchMolGraph:
             batch = mol2graph(batch)
 
-        # TODO is this how we do a call?
-        output = self.encoder(batch)
+        f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = batch.get_components()
+        output = self.encoder(f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope)
 
         return output
