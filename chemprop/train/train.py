@@ -43,8 +43,8 @@ def train(model: tf.keras.Model,
         with tf.GradientTape() as tape:
             # Prepare batch
             mol_batch, features_batch, target_batch = batch.batch_graph(), batch.features(), batch.targets()
-            mask = tf.convert_to_tensor([[x is not None for x in tb] for tb in target_batch], dtype=float)
-            targets = tf.convert_to_tensor([[0 if x is None else x for x in tb] for tb in target_batch], dtype=float)
+            mask = tf.constant([[x is not None for x in tb] for tb in target_batch], dtype=float)
+            targets = tf.constant([[0 if x is None else x for x in tb] for tb in target_batch])
             class_weights = tf.ones(targets.shape)
 
             # Run model
