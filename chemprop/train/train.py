@@ -10,6 +10,8 @@ from chemprop.nn_utils import compute_gnorm, compute_pnorm, NoamLR
 
 import tensorflow as tf
 
+import cProfile
+
 def train(model: tf.keras.Model,
           data_loader: MoleculeDataLoader,
           loss_func: Callable,
@@ -31,6 +33,8 @@ def train(model: tf.keras.Model,
     :param writer: A tensorboardX SummaryWriter.
     :return: The total number of iterations (training examples) trained on so far.
     """
+    #pr = cProfile.Profile()
+    #pr.enable()
     debug = logger.debug if logger is not None else print
     
     loss_sum, iter_count = 0, 0
@@ -76,4 +80,6 @@ def train(model: tf.keras.Model,
                 #writer.add_scalar('param_norm', pnorm, n_iter)
                 #writer.add_scalar('gradient_norm', gnorm, n_iter)
 
+    #pr.disable()
+    #pr.print_stats(sort='time')
     return n_iter

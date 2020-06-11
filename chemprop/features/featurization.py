@@ -226,16 +226,16 @@ class BatchMolGraph:
 
         self.max_num_bonds = max(1, max(len(in_bonds) for in_bonds in a2b))  # max with 1 to fix a crash in rare case of all single-heavy-atom mols
 
-        self.f_atoms = tf.convert_to_tensor(f_atoms)
-        self.f_bonds = tf.convert_to_tensor(f_bonds)
-        self.a2b = tf.convert_to_tensor([a2b[a] + [0] * (self.max_num_bonds - len(a2b[a])) for a in range(self.n_atoms)])
-        self.a2b2 = tf.convert_to_tensor(a2b2)
-        self.b2a = tf.convert_to_tensor(b2a)
-        self.b2revb = tf.convert_to_tensor(b2revb)
+        self.f_atoms = tf.constant(f_atoms)
+        self.f_bonds = tf.constant(f_bonds)
+        self.a2b = tf.constant([a2b[a] + [0] * (self.max_num_bonds - len(a2b[a])) for a in range(self.n_atoms)])
+        self.a2b2 = tf.constant(a2b2)
+        self.b2a = tf.constant(b2a)
+        self.b2revb = tf.constant(b2revb)
         self.b2b = None  # try to avoid computing b2b b/c O(n_atoms^3)
         self.a2a = None  # only needed if using atom messages
-        self.a_scope = tf.convert_to_tensor(a_scope)
-        self.b_scope = tf.convert_to_tensor(b_scope)
+        self.a_scope = tf.constant(a_scope)
+        self.b_scope = tf.constant(b_scope)
 
     def get_components(self, atom_messages: bool = False):
         """
