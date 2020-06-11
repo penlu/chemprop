@@ -201,14 +201,19 @@ class BatchMolGraph:
         f_atoms = [[0] * self.atom_fdim]  # atom features
         f_bonds = [[0] * self.bond_fdim]  # combined atom/bond features
         a2b = [[]]  # mapping from atom index to incoming bond indices
+        a2b2 = [0]
         b2a = [0]  # mapping from bond index to the index of the atom the bond is coming from
         b2revb = [0]  # mapping from bond index to the index of the reverse bond
         for mol_num, mol_graph in enumerate(mol_graphs):
             f_atoms.extend(mol_graph.f_atoms)
             f_bonds.extend(mol_graph.f_bonds)
 
+            a2b2 += [0] * mol_graph.n_bonds
+
             for a in range(mol_graph.n_atoms):
                 a2b.append([b + self.n_bonds for b in mol_graph.a2b[a]])
+                for b in mol_graph.a2b[a]:
+                    a2b2[b + self.n_bonds] = a + self.n_atoms
 
             for b in range(mol_graph.n_bonds):
                 b2a.append(self.n_atoms + mol_graph.b2a[b])
@@ -224,6 +229,7 @@ class BatchMolGraph:
         self.f_atoms = tf.convert_to_tensor(f_atoms)
         self.f_bonds = tf.convert_to_tensor(f_bonds)
         self.a2b = tf.convert_to_tensor([a2b[a] + [0] * (self.max_num_bonds - len(a2b[a])) for a in range(self.n_atoms)])
+        self.a2b2 = tf.convert_to_tensor(a2b2)
         self.b2a = tf.convert_to_tensor(b2a)
         self.b2revb = tf.convert_to_tensor(b2revb)
         self.b2b = None  # try to avoid computing b2b b/c O(n_atoms^3)
@@ -245,7 +251,7 @@ class BatchMolGraph:
         else:
             f_bonds = self.f_bonds
 
-        return self.f_atoms, f_bonds, self.a2b, self.b2a, self.b2revb, self.a_scope, self.b_scope
+        return self.f_atoms, f_bonds, self.a2b, self.a2b2, self.b2a, self.b2revb, self.a_scope, self.b_scope
 
     def get_b2b(self):
         """

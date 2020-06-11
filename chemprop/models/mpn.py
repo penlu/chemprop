@@ -65,7 +65,7 @@ class MPNEncoder(layers.Layer):
         self.W_o = Dense(self.hidden_size, input_shape=(self.atom_fdim + self.hidden_size,))
 
     @tf.function(experimental_relax_shapes=True)
-    def call(self, f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope) -> tf.Tensor:
+    def call(self, f_atoms, f_bonds, a2b, a2b2, b2a, b2revb, a_scope, b_scope) -> tf.Tensor:
     #mol_graph: BatchMolGraph) -> tf.Tensor:
         """
         Encodes a batch of molecular graphs.
@@ -92,6 +92,7 @@ class MPNEncoder(layers.Layer):
                 message = (message + message[b2revb]) / 2
 
             if self.atom_messages:
+                raise Exception("we are bailing out")
                 nei_a_message = index_select_ND(message, a2a)  # num_atoms x max_num_bonds x hidden
                 nei_f_bonds = index_select_ND(f_bonds, a2b)  # num_atoms x max_num_bonds x bond_fdim
                 nei_message = tf.concat((nei_a_message, nei_f_bonds), 2)  # num_atoms x max_num_bonds x (hidden + bond_fdim)
@@ -99,8 +100,9 @@ class MPNEncoder(layers.Layer):
             else:
                 # m(a1 -> a2) = [sum_{a0 \in nei(a1)} m(a0 -> a1)] - m(a2 -> a1)
                 # message      a_message = sum(nei_a_message)      rev_message
-                nei_a_message = index_select_ND(message, a2b)  # num_atoms x max_num_bonds x hidden
-                a_message = tf.math.reduce_sum(nei_a_message, axis=1)  # num_atoms x hidden
+                #nei_a_message = index_select_ND(message, a2b)  # num_atoms x max_num_bonds x hidden
+                #a_message = tf.math.reduce_sum(nei_a_message, axis=1)  # num_atoms x hidden
+                a_message = tf.math.segment_sum(message, a2b2)
                 rev_message = tf.gather(message, b2revb) # num_bonds x hidden
                 message = tf.gather(a_message, b2a) - rev_message  # num_bonds x hidden
 
@@ -151,7 +153,7 @@ class MPN(layers.Layer):
         if type(batch) != BatchMolGraph:
             batch = mol2graph(batch)
 
-        f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = batch.get_components()
-        output = self.encoder(f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope)
+        f_atoms, f_bonds, a2b, a2b2, b2a, b2revb, a_scope, b_scope = batch.get_components()
+        output = self.encoder(f_atoms, f_bonds, a2b, a2b2, b2a, b2revb, a_scope, b_scope)
 
         return output
